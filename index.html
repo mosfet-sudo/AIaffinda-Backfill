@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Backfill</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head>
+<body>
+<style>
+/* Layout: a phone-sized app column (max 440px) for Mo; on wide screens an "under the hood" panel sits beside it for judges. */
+:root{
+  --bg:#f2f3f0; --surface:#ffffff; --surface-2:#e8eae5; --ink:#15181c; --ink-2:#474d55; --ink-3:#7a828b; --line:#d3d7d0;
+  --accent:#e0520e; --accent-ink:#ffffff; --accent-soft:#fde6da;
+  --crit:#c2251e; --crit-soft:#fbe0de; --warn:#a9670a; --warn-soft:#fbeccd; --ok:#1e7a3e; --ok-soft:#dbf1e1; --info:#2457b3; --info-soft:#dde6f9;
+  --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans:'Barlow','Helvetica Neue',Arial,sans-serif;
+  --cond:'Barlow Condensed','Barlow','Arial Narrow',sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121416; --surface:#1b1e22; --surface-2:#23272c; --ink:#eef0ec; --ink-2:#b5bbc3; --ink-3:#848c96; --line:#31363c;
+  --accent:#ff6b2b; --accent-ink:#1a0d06; --accent-soft:#3a2216;
+  --crit:#ff6f67; --crit-soft:#3b1d1b; --warn:#e9a844; --warn-soft:#3a2c12; --ok:#52c67e; --ok-soft:#15311f; --info:#7faaff; --info-soft:#1b2a46;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#121416; --surface:#1b1e22; --surface-2:#23272c; --ink:#eef0ec; --ink-2:#b5bbc3; --ink-3:#848c96; --line:#31363c;
+  --accent:#ff6b2b; --accent-ink:#1a0d06; --accent-soft:#3a2216;
+  --crit:#ff6f67; --crit-soft:#3b1d1b; --warn:#e9a844; --warn-soft:#3a2c12; --ok:#52c67e; --ok-soft:#15311f; --info:#7faaff; --info-soft:#1b2a46;
+  color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.4;padding-inline:16px;padding-block:12px 32px}
+h1,h2,h3,h4{margin:0;text-wrap:balance;font-family:var(--cond);letter-spacing:.01em}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+.shell{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.brand-name{font-family:var(--cond);font-weight:700;font-size:30px;line-height:1;display:block}
+.brand-sub{color:var(--ink-2);font-size:13px}
+.clock{font-family:var(--mono);font-size:14px;color:var(--ink-2);display:flex;gap:10px;align-items:baseline}
+.clock b{font-size:22px;color:var(--ink);font-weight:500}
+.presets{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.presets .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin-right:4px}
+.preset{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font-weight:600;font-size:13px}
+.preset.active{border-color:var(--accent);background:var(--accent-soft)}
+.preset.ghost{color:var(--ink-2);font-weight:500}
+.cols{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+.phone{background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;min-width:0;box-shadow:0 10px 30px rgba(0,0,0,.07)}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.metric{background:var(--surface-2);padding:8px 6px 6px;text-align:center;min-width:0}
+.metric .v{font-family:var(--mono);font-size:18px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+.metric .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;border:0;background:none;padding:10px 4px;font-weight:600;color:var(--ink-3);border-bottom:3px solid transparent;font-size:13.5px;position:relative;min-width:0}
+.tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--crit);color:#fff;font-family:var(--mono);font-size:11px;margin-left:4px;line-height:18px}
+.tab .n.ok{background:var(--ok)}
+.view{padding:12px 12px 16px;display:flex;flex-direction:column;gap:12px;min-height:420px}
+.card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface);display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.crit{border-left:4px solid var(--crit)}
+.card.warn{border-left:4px solid var(--warn)}
+.card.low{border-left:4px solid var(--ink-3)}
+.card.ok{border-left:4px solid var(--ok)}
+.card.info{border-left:4px solid var(--info)}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.row>*{min-width:0}
+.title{font-weight:700;font-size:16px;font-family:var(--cond);font-size:18px}
+.sub{color:var(--ink-2);font-size:13px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.pill.high{background:var(--crit-soft);color:var(--crit)}
+.pill.medium{background:var(--warn-soft);color:var(--warn)}
+.pill.low{background:var(--surface-2);color:var(--ink-2)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.info{background:var(--info-soft);color:var(--info)}
+.pill.neutral{background:var(--surface-2);color:var(--ink-2)}
+.chip{display:inline-block;padding:2px 7px;border-radius:6px;background:var(--surface-2);font-size:12px;color:var(--ink-2)}
+.mono{font-family:var(--mono);font-size:13px}
+.radio{font-family:var(--mono);font-size:13px;background:var(--surface-2);border-radius:8px;padding:8px 10px;white-space:pre-wrap;word-break:break-word;border-left:3px solid var(--ink-3)}
+textarea,input[type=text],input[type=password],input[type=number],select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:64px;font-family:var(--mono);font-size:13px}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 12px;font-weight:600;font-size:14px;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn.sm{padding:5px 9px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow.end{justify-content:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600}
+.field.lowconf select,.field.lowconf input{border-color:var(--warn);background:var(--warn-soft)}
+.field .hint{font-size:12px;color:var(--warn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:380px){.grid2{grid-template-columns:1fr}}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;background:var(--surface);padding:8px 4px;font-weight:600;color:var(--ink-2)}
+.seg button.on.high{background:var(--crit-soft);color:var(--crit)}
+.seg button.on.medium{background:var(--warn-soft);color:var(--warn)}
+.seg button.on.low{background:var(--surface-2);color:var(--ink)}
+.ask{background:var(--info-soft);border:1px solid var(--info);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.ask .q{font-weight:700}
+.rationale{display:flex;flex-direction:column;gap:3px;font-size:14px}
+.rationale .l1{font-weight:600}
+.rationale .l2{color:var(--ink-2)}
+.status{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
+.status .st{padding:2px 7px;border-radius:999px;background:var(--surface-2)}
+.status .st.done{background:var(--ok-soft);color:var(--ok);font-weight:600}
+.status .st.now{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.status .st.bad{background:var(--crit-soft);color:var(--crit);font-weight:700}
+.sms{background:var(--info-soft);border-radius:12px 12px 12px 3px;padding:8px 10px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+.reply{align-self:flex-end;background:var(--surface-2);border-radius:12px 12px 3px 12px;padding:6px 10px;font-size:14px;max-width:80%}
+.logline{display:grid;grid-template-columns:44px 1fr;gap:8px;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.logline .t{font-family:var(--mono);color:var(--ink-3);font-size:12.5px;padding-top:1px}
+.logline .a{font-weight:700}
+.map{width:100%;max-width:100%;height:auto;display:block;border-radius:10px;background:var(--surface-2)}
+.empty{color:var(--ink-3);text-align:center;padding:24px 8px;font-size:14px}
+details{border:1px dashed var(--line);border-radius:8px;padding:6px 10px}
+details summary{cursor:pointer;font-size:13px;color:var(--ink-2);font-weight:600}
+details[open] summary{margin-bottom:6px}
+ul.tight{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink-2)}
+ul.tight li{margin:2px 0}
+.hood{display:flex;flex-direction:column;gap:12px;min-width:0}
+.hood h2{font-size:20px}
+.hood .card{font-size:13.5px}
+.hood pre{margin:0;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;color:var(--ink-2);max-height:260px;overflow:auto}
+.funnel{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+.funnel .n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.funnel .zero{color:var(--crit);font-weight:700}
+.banner{background:var(--crit-soft);color:var(--crit);border-radius:10px;padding:8px 10px;font-weight:600;font-size:14px}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner.info{background:var(--info-soft);color:var(--info)}
+.note{font-size:12.5px;color:var(--ink-3)}
+.post-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+.post-row .cnt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+.post-row .cnt.below{color:var(--crit);font-weight:700}
+.post-row .cnt.atmin{color:var(--warn);font-weight:600}
+.post-row .cnt.ok{color:var(--ok)}
+.names{font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:4px;padding:4px 0 8px}
+.names span{background:var(--surface-2);border-radius:5px;padding:1px 6px}
+.names span.gone{text-decoration:line-through;opacity:.6}
+.names span.mv{background:var(--info-soft);color:var(--info)}
+.scen{border-left:4px solid var(--accent)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:13px}
+.kv b{font-family:var(--mono);font-weight:500;color:var(--ink-2)}
+.sheet{position:fixed;inset:0;background:rgba(10,12,14,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20;padding:0}
+.sheet .panel{background:var(--surface);width:100%;max-width:520px;max-height:92%;overflow:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;border:1px solid var(--line)}
+@media (min-width:600px){.sheet{align-items:center;padding:16px}.sheet .panel{border-radius:18px}}
+.aimode{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.copyout{width:100%;min-height:220px;font-family:var(--mono);font-size:12px}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .2s}}
+</style>
+
+<div class="shell">
+  <header class="top">
+    <div>
+      <span class="brand-name">Backfill</span>
+      <span class="brand-sub">Roster repair for the Riverside safety crew · Saturday afternoon</span>
+    </div>
+    <div class="clock"><span>Sat</span><b id="clock">14:00</b><span>38°C</span><span id="aibadge" class="pill neutral">Offline parser</span></div>
+  </header>
+
+  <section class="presets" aria-label="Demo scenarios">
+    <span class="lbl">Demo</span>
+    <button class="preset" data-s="1" id="ps1">1 · One no-show</button>
+    <button class="preset" data-s="2" id="ps2">2 · Replacement declines</button>
+    <button class="preset" data-s="3" id="ps3">3 · Two posts short</button>
+    <button class="preset ghost" id="autorun">▶ Auto-run</button>
+    <button class="preset ghost" id="reset">Reset</button>
+  </section>
+
+  <div class="cols">
+    <main class="phone" aria-label="Mo's phone">
+      <div class="metrics">
+        <div class="metric"><div class="v" id="m-ms">–</div><div class="k">Time to plan</div></div>
+        <div class="metric"><div class="v" id="m-moves">0</div><div class="k">Changes</div></div>
+        <div class="metric"><div class="v" id="m-gaps">0</div><div class="k">Open gaps</div></div>
+        <div class="metric"><div class="v" id="m-conf">0/0</div><div class="k">On post</div></div>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-v="queue" id="tab-queue">Queue<span class="n" id="n-queue" hidden></span></button>
+        <button class="tab" data-v="plan" id="tab-plan">Plan</button>
+        <button class="tab" data-v="track" id="tab-track">Track<span class="n" id="n-track" hidden></span></button>
+        <button class="tab" data-v="roster" id="tab-roster">Roster</button>
+        <button class="tab" data-v="log" id="tab-log">Log</button>
+      </nav>
+
+      <section class="view" id="view-queue">
+        <div class="card">
+          <div class="field">
+            <label for="msg">Incoming radio transcript or text</label>
+            <textarea id="msg" placeholder="e.g. Priya hasn't turned up at First Aid North, need one more."></textarea>
+          </div>
+          <div class="btnrow">
+            <button class="btn primary" id="parse">Parse message</button>
+            <button class="btn sm" id="try-infeasible" title="Shows what happens when no feasible plan exists">Try: no feasible plan</button>
+          </div>
+          <div class="note" id="parse-note"></div>
+        </div>
+        <div id="queue-list"></div>
+      </section>
+
+      <section class="view" id="view-plan" hidden></section>
+      <section class="view" id="view-track" hidden></section>
+      <section class="view" id="view-roster" hidden></section>
+      <section class="view" id="view-log" hidden></section>
+    </main>
+
+    <aside class="hood">
+      <h2>Under the hood</h2>
+      <div class="card scen" id="scen-card">
+        <div class="title">Pick a demo scenario</div>
+        <div class="sub">Three preset scenarios run on a generated 300-volunteer roster (about 60 on site this shift). Each one takes under a minute to click through, or press Auto-run.</div>
+      </div>
+      <div class="card">
+        <div class="title">AI mode</div>
+        <div class="aimode">
+          <span class="sub">Language work (parse, rationale, messages, end-of-day record) runs through Claude when a key is set. Decisions about who moves never do: those come from the solver.</span>
+        </div>
+        <div class="field"><label for="apikey">Anthropic API key (optional, stays in this browser)</label><input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off"></div>
+        <div class="btnrow"><button class="btn sm" id="savekey">Use live Claude</button><button class="btn sm" id="clearkey">Use offline parser</button></div>
+        <div class="note" id="ai-note">Offline mode: a rule-based parser and templates grounded on the same structured fields. The hosted viewer blocks outside network calls, so live mode works when the file is opened locally.</div>
+      </div>
+      <div class="card">
+        <div class="title">Solver trace</div>
+        <pre id="trace">No plan yet. Confirm a gap, then open Plan.</pre>
+      </div>
+      <div class="card">
+        <div class="title">Rules the solver enforces</div>
+        <ul class="tight">
+          <li><b>Hard</b> (never relaxed): certificate match · on site now · not already moving · not at a post that is itself short · rested (under 3 h without a break) · source post keeps its minimum cover · no double-booking across gaps.</li>
+          <li><b>Soft</b> (minimised, in order of weight): pulling someone off a post costs 30 vs 10 from standby · walk time ×2 per minute · hours already worked ×3 · stated preferences ±.</li>
+          <li>All open gaps are solved together by exact branch-and-bound search over the feasible assignments. If no full plan exists, the best partial plan is shown with the reason for each unfilled slot.</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="panel" id="sheet-panel"></div>
+</div>
+
+<script>
+'use strict';
+/* ---------- data ---------- */
+const POSTS = [
+  {id:'FA-N', name:'First Aid North', short:'FA North', x:150,y:60, certs:['first_aid'], min:2, target:3, lead:'Mo'},
+  {id:'FA-S', name:'First Aid South', short:'FA South', x:450,y:340, certs:['first_aid'], min:2, target:3, lead:'Mo'},
+  {id:'WS-A', name:'Water Station A', short:'Water A', x:220,y:110, certs:[], min:2, target:3},
+  {id:'WS-B', name:'Water Station B', short:'Water B', x:400,y:290, certs:[], min:2, target:4},
+  {id:'G1', name:'Gate 1 (Main)', short:'Gate 1', x:40,y:200, certs:[], min:3, target:5},
+  {id:'G2', name:'Gate 2 (River)', short:'Gate 2', x:560,y:200, certs:[], min:3, target:4},
+  {id:'G3', name:'Gate 3 (Staff)', short:'Gate 3', x:300,y:20, certs:[], min:2, target:2},
+  {id:'MS', name:'Main Stage Barrier', short:'Main Stg', x:300,y:90, certs:['crowd'], min:4, target:6},
+  {id:'RS', name:'River Stage Barrier', short:'River Stg', x:300,y:330, certs:['crowd'], min:3, target:4},
+  {id:'LC', name:'Lost Children Tent', short:'Lost Kids', x:330,y:180, certs:['wwcc'], min:2, target:3},
+  {id:'BAR', name:'Licensed Bar', short:'Bar', x:500,y:150, certs:['rsa'], min:3, target:5},
+  {id:'INFO', name:'Info Tent', short:'Info', x:120,y:180, certs:[], min:1, target:2},
+  {id:'ACC', name:'Accessible Viewing', short:'Access', x:200,y:80, certs:[], min:1, target:2},
+  {id:'SHADE', name:'Cooling Tent', short:'Cooling', x:280,y:240, certs:[], min:1, target:2},
+  {id:'HQ', name:'Volunteer HQ (standby)', short:'HQ', x:300,y:200, certs:[], min:0, target:0},
+];
+const P = Object.fromEntries(POSTS.map(p=>[p.id,p]));
+const ALIASES = {
+  'FA-N':['first aid north','first-aid north','fa north','medical north','north first aid'],
+  'FA-S':['first aid south','first-aid south','fa south','medical south','south first aid'],
+  'WS-A':['water station a','water a','water stn a'], 'WS-B':['water station b','water b','water stn b'],
+  'G1':['gate 1','gate one','main gate'], 'G2':['gate 2','gate two','river gate'], 'G3':['gate 3','gate three','staff gate'],
+  'MS':['main stage'], 'RS':['river stage'], 'LC':['lost children','lost kids','lost child'], 'BAR':['the bar','bar area','licensed area'],
+  'INFO':['info tent','info'], 'ACC':['accessible viewing','access viewing','accessible'], 'SHADE':['cooling tent','cooling','shade tent'],
+};
+const CERT = {first_aid:'first-aid cert', rsa:'RSA', wwcc:'WWCC', crowd:'barrier briefing'};
+const FIRST = ['Aarav','Abby','Aiden','Amelia','Amir','Ana','Angus','Anh','Arjun','Ava','Bao','Bella','Ben','Bianca','Callum','Charlie','Chloe','Cooper','Daniel','Dev','Dylan','Ella','Emily','Ethan','Fatima','Finn','Grace','Hamza','Hannah','Harper','Hugo','Isla','Jack','Jade','Jai','James','Jess','Josh','Kai','Kate','Kiara','Lachlan','Layla','Leo','Liam','Lily','Lucas','Lucy','Maya','Mia','Mitch','Nadia','Nate','Nina','Noah','Oliver','Olivia','Oscar','Rahul','Riley','Rosie','Ruby','Ryan','Sana','Sofia','Tahlia','Taylor','Tess','Will','Yara','Zoe','Zac'];
+const LAST = ['Smith','Nguyen','Chen','Williams','Patel','Singh','Kumar','Brown','Wilson','Taylor','Lee','Tran','Jones','Khan','Martin','Thompson','Ali','Walker','Harris','Wang','Li','Murphy','Zhang','Kelly','Anderson','White','Roberts','Campbell','Rossi','Costa','Papadopoulos','Ivanova','Okafor','Adeyemi','Haddad','Reyes','Garcia','Silva','Santos','Burke','Walsh','Baker','Hughes','Mitchell','Young','Scott','King','Wright','Evans','Mackenzie'];
+const KEY = [
+  {name:'Alex Nguyen', certs:['first_aid'], post:'FA-N', status:'on_post', note:'Did first aid here last year. Happy to be at either FA post.'},
+  {name:'Priya Patel', certs:['first_aid'], post:'FA-N', status:'on_post', note:'St John volunteer. Saturday only.'},
+  {name:'Ruth Adeyemi', certs:['first_aid','wwcc'], post:'FA-N', status:'on_post', note:'Nurse, can lead a post.'},
+  {name:'Sam Lee', certs:['first_aid'], post:'G2', status:'on_post', note:'Have a first-aid cert, happy to use it if needed. Prefer gates otherwise.', prefs:['first_aid']},
+  {name:'Jordan Reyes', certs:['first_aid'], post:'HQ', status:'standby', note:'Only free Saturday. Have a first-aid cert (renewed March).', prefs:['first_aid']},
+  {name:'Dana Okafor', certs:['first_aid'], post:'WS-B', status:'on_post', note:'Lifeguard, first aid current.'},
+  {name:'Casey Burke', certs:['first_aid'], post:'G3', status:'on_post', note:'Staff gate please, bad knee, short walks only.', avoid:['walk']},
+  {name:'Lee Tran', certs:['first_aid'], post:'FA-S', status:'on_post', note:'Double shift Sat.', hoursToday:4, continuous:3.5},
+  {name:'Omar Haddad', certs:['first_aid'], post:'FA-S', status:'on_post', note:'Paramedic student.'},
+  {name:'Mei Chen', certs:['first_aid'], post:'FA-S', status:'on_post', note:'First aid cert, prefer south side (parked there).', prefs:['south']},
+  {name:'Kim Walsh', certs:['rsa','first_aid'], post:'BAR', status:'on_post', note:'RSA and first aid. Bar is fine.'},
+  {name:'Tom Baker', certs:[], post:'HQ', status:'on_break', restMin:5, note:'Any post. Did 10-2 at Gate 1.', hoursToday:4, continuous:0},
+  {name:'Noah Kim', certs:[], post:'HQ', status:'standby', note:'Anything outdoors.'},
+  {name:'Isla Murphy', certs:['wwcc'], post:'HQ', status:'standby', note:'Teacher, WWCC current. Lost kids tent if needed.', prefs:['wwcc']},
+];
+let V = [];
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function buildRoster(){
+  const rng = mulberry32(20261008); const pick=a=>a[Math.floor(rng()*a.length)];
+  const used=new Set(KEY.map(k=>k.name)); let id=1; V=[];
+  const add=o=>{const v=Object.assign({id:'v'+(id++),certs:[],post:null,status:'off_site',block:'Sat-B',hoursToday:0,continuous:0,restMin:0,note:'',prefs:[],avoid:[]},o);V.push(v);return v;};
+  const newName=()=>{let n;do{n=pick(FIRST)+' '+pick(LAST)}while(used.has(n));used.add(n);return n;};
+  KEY.forEach(k=>add(Object.assign({},k)));
+  for(const p of POSTS){ if(p.id==='HQ')continue; let have=V.filter(v=>v.post===p.id).length;
+    while(have<p.target){ const v=add({name:newName(),certs:p.certs.slice(),post:p.id,status:'on_post'});
+      if(rng()<0.12) v.certs.push('wwcc'); if(rng()<0.1) v.certs.push('rsa');
+      if(rng()<0.2){v.hoursToday=4;v.continuous=1.5;v.note='Double shift Sat, had a break 12:30.';}
+      have++; } }
+  for(let i=0;i<4;i++) add({name:newName(),post:'HQ',status:'standby',certs:rng()<0.3?['wwcc']:[],note:'Any post.'});
+  const blocks=['Fri-B','Fri-C','Sat-A','Sat-C','Sun-A','Sun-B','Sun-C','Fri-A'];
+  while(V.length<300){ const b=blocks[V.length%blocks.length]; const r=rng();
+    add({name:newName(),block:b,status:'off_site',post:null,certs:r<0.14?['first_aid']:(r<0.34?['rsa']:(r<0.6?['wwcc']:[]))}); }
+}
+const VBY = name=>V.find(v=>v.name===name);
+
+/* ---------- state ---------- */
+const S = {now:840, items:[], moves:[], plan:null, log:[], key:null, scenario:null, view:'queue', seq:1, pending:[]};
+const hhmm = m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+const nid = p=>p+(S.seq++);
+function log(actor,text){S.log.push({t:S.now,actor,text});}
+function tick(min){S.now+=min;}
+const dist=(a,b)=>Math.hypot(P[a].x-P[b].x,P[a].y-P[b].y);
+const walkMin=(a,b)=>Math.max(1,Math.ceil(dist(a,b)/75));
+const activeStatuses=['proposed','approved','sent','confirmed'];
+function outgoing(v){return S.moves.find(m=>m.volId===v.id&&activeStatuses.includes(m.status));}
+function count(pid){return V.filter(v=>v.post===pid&&v.status==='on_post'&&!outgoing(v)).length;}
+function standbyCount(){return V.filter(v=>v.post==='HQ'&&v.status==='standby'&&!outgoing(v)).length;}
+const hasCerts=(v,certs)=>certs.every(c=>v.certs.includes(c));
+const rested=v=>v.status==='on_break'?v.restMin>=15:v.continuous<3;
+function onSite(v){return v.post&&['on_post','standby','on_break'].includes(v.status);}
+function openGaps(){return S.items.filter(i=>i.kind==='gap'&&i.status!=='closed'&&i.remaining>0);}
+function seedQueue(){
+  S.items.push({id:nid('i'),kind:'ops',postId:'INFO',title:'Info Tent: restock site maps',headcount:0,certs:[],risk:'low',created:813,deadline:900,status:'open',remaining:0,excluded:[],source:{text:'Info tent says they are nearly out of site maps, can someone bring a box when free.'},recheck:false});
+}
+
+/* ---------- parsing ---------- */
+const NUMW={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6};
+function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function parseOffline(text){
+  const sentences=text.split(/[.;!\n]+/).map(s=>s.trim()).filter(Boolean);
+  const records=[]; const onsite=V.filter(onSite);
+  for(const sent of sentences){
+    const t=sent.toLowerCase();
+    let postId=null, postConf='high', ask=null;
+    for(const [pid,als] of Object.entries(ALIASES)){ if(als.some(a=>new RegExp('\\b'+escRe(a)+'\\b').test(t))){postId=pid;break;} }
+    if(!postId && /\bfirst[- ]aid\b|\bfa\b|\bmedical\b/.test(t)){ ask={field:'postId',question:'Which first-aid post?',options:['FA-N','FA-S']}; postConf='low'; }
+    if(!postId && !ask){ if(/\bwater\b/.test(t)){ask={field:'postId',question:'Which water station?',options:['WS-A','WS-B']};postConf='low';} }
+    const noShow=/no[- ]?show|hasn.?t (turned|shown|come)|haven.?t (turned|shown|come)|didn.?t (turn|show)|not (here|turned up)|both down|down at|missing/.test(t);
+    const queue=/queue|deep|line is|backed up/.test(t);
+    const needM=t.match(/\b(?:need|needs|want|wants|send|short)\s+(?:of\s+)?(a|an|one|two|three|four|five|six|\d+)\b/)||t.match(/\b(one|two|three|four|five|six|\d+)\s+(?:more|short|down|people|volunteers|bodies)\b/);
+    const names=[]; const rostered=V.filter(v=>v.post); const scope=postId?rostered.filter(v=>v.post===postId):rostered;
+    for(const v of (scope.length?scope:rostered)){ const first=v.name.split(' ')[0].toLowerCase(); if(new RegExp('\\b'+escRe(v.name.toLowerCase())+'\\b').test(t)||new RegExp('\\b'+escRe(first)+'\\b').test(t)){ if(!names.some(n=>n.id===v.id)) names.push(v);} }
+    if(!postId&&!ask&&!needM&&!noShow&&!names.length) continue;
+    let headcount=1, hcConf='high';
+    if(needM){ const w=needM[1]; headcount=NUMW[w]!==undefined?NUMW[w]:parseInt(w,10); }
+    else if(noShow&&names.length){ headcount=names.length; hcConf='low'; }
+    else { hcConf='low'; }
+    if(!postId&&!ask){
+      const last=records[records.length-1];
+      if(last){ // a follow-on sentence without a post ("Need one more there.") refers to the previous record
+        if(needM){ last.headcount=headcount; last.hcConf='high'; }
+        names.forEach(v=>{ if(!last.names.includes(v.name)) last.names.push(v.name); });
+        last.noShow=last.noShow||noShow; last.queue=last.queue||queue; last.sentence+=' '+sent;
+        if(last.queue&&!last.noShow&&!last.bottleneck) last.bottleneck={question:`${last.postId?P[last.postId].name:'That post'}: the message describes a queue. Is this a staffing shortage, or a supply or equipment problem?`};
+        continue; }
+      ask={field:'postId',question:'Which post is this about?',options:POSTS.filter(p=>p.id!=='HQ').map(p=>p.id)}; postConf='low';
+    }
+    const kind = (noShow||needM||postId) ? 'gap' : 'incident';
+    records.push({postId,postConf,ask,kind,headcount,hcConf,names:names.map(n=>n.name),noShow,queue,sentence:sent,
+      bottleneck: queue && !noShow ? {question:`${postId?P[postId].name:'That post'}: the message describes a queue. Is this a staffing shortage, or a supply or equipment problem?`} : null});
+  }
+  return records;
+}
+const SCHEMA={type:'object',additionalProperties:false,required:['records'],properties:{records:{type:'array',items:{type:'object',additionalProperties:false,required:['post_id','headcount','names','no_show','queue','sentence','clarifying_question'],properties:{
+  post_id:{type:['string','null'],enum:[...POSTS.map(p=>p.id).filter(id=>id!=='HQ'),null]},headcount:{type:'integer'},names:{type:'array',items:{type:'string'}},no_show:{type:'boolean'},queue:{type:'boolean'},sentence:{type:'string'},clarifying_question:{type:['string','null']}}}}}};
+async function callClaude({system,user,schema,maxTokens=1200}){
+  const body={model:'claude-opus-5-5',max_tokens:maxTokens,system,messages:[{role:'user',content:user}],output_config:Object.assign({effort:'low'},schema?{format:{type:'json_schema',schema}}:{}),fallbacks:'default'};
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':S.key,'anthropic-version':'2023-06-01','anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(`API ${r.status}: ${(await r.text()).slice(0,160)}`);
+  const j=await r.json(); if(j.stop_reason==='refusal') throw new Error('The model declined this request.');
+  const text=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  return schema?JSON.parse(text):text;
+}
+async function parseLive(text){
+  const posts=POSTS.filter(p=>p.id!=='HQ').map(p=>`${p.id}: ${p.name}`).join('\n');
+  const onsite=V.filter(v=>v.post).map(v=>`${v.name} (${P[v.post].short})`).join(', ');
+  const system=`You turn festival radio transcripts into structured staffing-gap records. Extract one record per post mentioned. Use only post ids from the list. If the post is ambiguous (e.g. "first aid" without north/south), set post_id to null and put a short clarifying question in clarifying_question. headcount is the number of people needed; if not stated, infer from the number of named no-shows, else 1. names must be full names from the on-site list when a first name matches. Never invent a post.\nPosts:\n${posts}\nOn site now: ${onsite}`;
+  const out=await callClaude({system,user:text,schema:SCHEMA});
+  return out.records.map(r=>{ const postId=r.post_id&&P[r.post_id]?r.post_id:null; let ask=null; if(!postId){ const fa=/first[- ]aid|fa\b|medical/i.test(r.sentence); ask={field:'postId',question:r.clarifying_question||(fa?'Which first-aid post?':'Which post?'),options:fa?['FA-N','FA-S']:POSTS.filter(p=>p.id!=='HQ').map(p=>p.id)}; }
+    return {postId,postConf:postId?'high':'low',ask,kind:'gap',headcount:Math.max(1,r.headcount|0),hcConf:'high',names:r.names,noShow:r.no_show,queue:r.queue,sentence:r.sentence,bottleneck:r.queue&&!r.no_show?{question:`${postId?P[postId].name:'That post'}: the message describes a queue. Is this a staffing shortage, or a supply or equipment problem?`}:null,live:true}; });
+}
+function suggestRisk(rec){ if(!rec.postId) return 'high'; const p=P[rec.postId]; if(p.certs.includes('first_aid')) return 'high'; const after=count(rec.postId)-(rec.noShow?0:0); if(after<p.min) return 'high'; return 'medium'; }
+
+/* ---------- capture sheet ---------- */
+async function doParse(text){
+  text=(text||'').trim(); if(!text){note('Type or paste a message first.');return;}
+  note('Parsing…'); let recs, live=false;
+  if(S.key){ try{ recs=await parseLive(text); live=true; }catch(e){ note('Live parse failed ('+e.message+'). Used the offline parser instead.'); recs=parseOffline(text);} }
+  else recs=parseOffline(text);
+  if(!recs.length){note('Could not find a post or a headcount in that message. Try naming the post.');return;}
+  tick(1); log('Backfill',`Parsed message into ${recs.length} record${recs.length>1?'s':''} (${live?'Claude':'offline parser'}): "${text}"`);
+  note(live?'Parsed with Claude. Confirm the fields.':'Parsed offline. Confirm the fields.');
+  S.pending=recs.map(r=>Object.assign({risk:suggestRisk(r),riskConfirmed:false,deadlineMin:(r.postId&&P[r.postId].certs.includes('first_aid'))?20:30,bottleneckAnswer:null,text},r));
+  openSheet(); renderSheet();
+}
+function note(t){document.getElementById('parse-note').textContent=t;}
+function openSheet(){document.getElementById('sheet').hidden=false;}
+function closeSheet(){document.getElementById('sheet').hidden=true;S.pending=[];}
+function renderSheet(){
+  const el=document.getElementById('sheet-panel'); const recs=S.pending; if(!recs.length){closeSheet();return;}
+  const postOpts=POSTS.filter(p=>p.id!=='HQ').map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  el.innerHTML=`<div class="row"><h3 style="font-size:20px">Confirm what came in</h3><button class="btn sm" id="sheet-close">Cancel</button></div>
+  <div class="note">Original message is on top; parsed fields below. Highlighted fields had low confidence. Nothing enters the queue until the coordinator confirms.</div>
+  <div class="radio">${esc(recs[0].text)}</div>
+  ${recs.map((r,i)=>`<div class="card ${r.risk==='high'?'crit':r.risk==='medium'?'warn':'low'}" data-i="${i}">
+    ${r.ask?`<div class="ask"><div class="q">${esc(r.ask.question)}</div><div class="btnrow">${r.ask.options.map(o=>`<button class="btn sm ask-opt" data-i="${i}" data-v="${o}">${P[o].name}</button>`).join('')}</div></div>`:''}
+    <div class="grid2">
+      <div class="field ${r.postConf==='low'?'lowconf':''}"><label>Post</label><select class="f-post" data-i="${i}"><option value="">— choose —</option>${postOpts}</select>${r.postConf==='low'?'<div class="hint">Not stated clearly</div>':''}</div>
+      <div class="field ${r.hcConf==='low'?'lowconf':''}"><label>People needed</label><input type="number" min="1" max="8" class="f-hc" data-i="${i}" value="${r.headcount}">${r.hcConf==='low'?'<div class="hint">Inferred, please check</div>':''}</div>
+      <div class="field"><label>Required</label><div class="sub">${r.postId?(P[r.postId].certs.map(c=>CERT[c]).join(', ')||'No certificate'):'Depends on post'}</div></div>
+      <div class="field"><label>Named</label><div class="sub">${r.names.length?r.names.map(esc).join(', '):'—'} ${r.noShow?'<span class="pill neutral">no-show</span>':''}</div></div>
+      <div class="field"><label>Needed by</label><select class="f-dl" data-i="${i}">${[10,20,30,60].map(m=>`<option value="${m}" ${m===r.deadlineMin?'selected':''}>${hhmm(S.now+m)} (${m} min)</option>`).join('')}</select></div>
+      <div class="field"><label>Risk level <span style="text-transform:none;letter-spacing:0;color:var(--ink-3)">(set by a person)</span></label>
+        <div class="seg">${['high','medium','low'].map(l=>`<button class="f-risk ${l} ${r.risk===l?'on':''}" data-i="${i}" data-v="${l}">${l[0].toUpperCase()+l.slice(1)}</button>`).join('')}</div>
+        <div class="note">${r.riskConfirmed?'Confirmed by coordinator':'Suggested, tap to confirm'}</div></div>
+    </div>
+    ${r.bottleneck?`<div class="ask"><div class="q">${esc(r.bottleneck.question)}</div><div class="btnrow">
+      <button class="btn sm bn" data-i="${i}" data-v="staff" ${r.bottleneckAnswer==='staff'?'style="border-color:var(--info);font-weight:700"':''}>Staffing: propose a move</button>
+      <button class="btn sm bn" data-i="${i}" data-v="supply" ${r.bottleneckAnswer==='supply'?'style="border-color:var(--info);font-weight:700"':''}>Supply: raise an ops task, no move</button></div>
+      <div class="note">A 40-person queue can be a water or ice problem. Backfill asks before it moves anyone.</div></div>`:''}
+  </div>`).join('')}
+  <div class="btnrow end"><button class="btn primary" id="sheet-confirm">Add ${recs.length>1?recs.length+' items':'to queue'}</button></div>`;
+  recs.forEach((r,i)=>{ const sel=el.querySelector(`.f-post[data-i="${i}"]`); sel.value=r.postId||''; });
+  el.querySelector('#sheet-close').onclick=closeSheet;
+  el.querySelectorAll('.ask-opt').forEach(b=>b.onclick=()=>{const r=recs[+b.dataset.i]; r.postId=b.dataset.v; r.ask=null; r.postConf='high'; r.risk=suggestRisk(r); log('Coordinator',`Answered "${P[r.postId].name}" to the parser's question.`); renderSheet();});
+  el.querySelectorAll('.f-post').forEach(s=>s.onchange=()=>{const r=recs[+s.dataset.i]; r.postId=s.value||null; r.postConf='high'; r.ask=null; r.risk=suggestRisk(r); renderSheet();});
+  el.querySelectorAll('.f-hc').forEach(s=>s.onchange=()=>{recs[+s.dataset.i].headcount=Math.max(1,+s.value|0); recs[+s.dataset.i].hcConf='high';});
+  el.querySelectorAll('.f-dl').forEach(s=>s.onchange=()=>{recs[+s.dataset.i].deadlineMin=+s.value;});
+  el.querySelectorAll('.f-risk').forEach(b=>b.onclick=()=>{const r=recs[+b.dataset.i]; r.risk=b.dataset.v; r.riskConfirmed=true; renderSheet();});
+  el.querySelectorAll('.bn').forEach(b=>b.onclick=()=>{recs[+b.dataset.i].bottleneckAnswer=b.dataset.v; renderSheet();});
+  el.querySelector('#sheet-confirm').onclick=doConfirmAll;
+}
+function doConfirmAll(){
+  const recs=S.pending; if(!recs.length) return;
+  for(const r of recs){ if(!r.postId){note('Choose a post for every record first.');return;} if(r.bottleneck&&!r.bottleneckAnswer){note('Answer the bottleneck question first.');return;} }
+  tick(1);
+  for(const r of recs){
+    const p=P[r.postId];
+    if(r.names.length&&r.noShow){ r.names.forEach(n=>{const v=VBY(n); if(v&&v.post===r.postId&&v.status==='on_post'){v.status='no_show';}}); }
+    if(r.bottleneckAnswer==='supply'){
+      S.items.push({id:nid('i'),kind:'ops',postId:r.postId,title:`${p.name}: supply check (water, ice, taps)`,headcount:0,certs:[],risk:r.risk,created:S.now,deadline:S.now+r.deadlineMin,status:'open',remaining:0,excluded:[],source:{text:r.text,sentence:r.sentence},recheck:false});
+      log('Coordinator',`${p.name} queue logged as a supply problem, not a staffing gap. Ops task raised; nobody moved.`); continue; }
+    const it={id:nid('i'),kind:'gap',postId:r.postId,title:`${p.name}: ${r.headcount} needed`,headcount:r.headcount,certs:p.certs.slice(),risk:r.risk,created:S.now,deadline:S.now+r.deadlineMin,status:'open',remaining:r.headcount,excluded:[],source:{text:r.text,sentence:r.sentence,names:r.names,noShow:r.noShow},recheck:false};
+    S.items.push(it);
+    log('Coordinator',`Confirmed gap: ${p.name}, ${r.headcount} × ${p.certs.map(c=>CERT[c]).join(', ')||'general'}; risk ${r.risk.toUpperCase()}, needed by ${hhmm(it.deadline)}.${r.names.length?' No-show: '+r.names.join(', ')+'.':''}`);
+  }
+  closeSheet(); note(''); S.plan=null; setView(openGaps().length?'plan':'queue'); renderAll();
+}
+
+/* ---------- solver ---------- */
+function moveCost(v,item){
+  let c = v.post==='HQ' ? (v.status==='on_break'?14:10) : 30;
+  const w=walkMin(v.post,item.postId); c+=w*2; c+=v.hoursToday*3;
+  const p=P[item.postId]; if(v.prefs.includes('first_aid')&&p.certs.includes('first_aid')) c-=5; if(v.prefs.includes('south')&&p.y>200) c-=3; if(v.prefs.includes('wwcc')&&p.certs.includes('wwcc')) c-=5;
+  if(v.avoid.includes('walk')&&w>2) c+=15;
+  return c;
+}
+function whyExcluded(v,item,gapPosts){
+  if(!hasCerts(v,item.certs)) return 'does not hold '+item.certs.map(c=>CERT[c]).join(', ');
+  if(!onSite(v)) return v.status==='no_show'?'is the no-show':'is not on site this shift';
+  const og=outgoing(v); if(og) return 'is already moving to '+P[og.to].short;
+  if(item.excluded.includes(v.id)) return 'already declined this gap';
+  if(v.post===item.postId) return 'is already at this post';
+  if(gapPosts.has(v.post)) return P[v.post].short+' is itself short';
+  if(!rested(v)) return v.status==='on_break'?`is only ${v.restMin} min into a break`:`has done ${v.continuous} h without a break in the heat`;
+  if(v.post!=='HQ'&&count(v.post)-1<P[v.post].min) return `${P[v.post].short} would drop below its ${P[v.post].min}-person minimum`;
+  return null;
+}
+function candidatesFor(item,gapPosts){
+  const steps=[]; let pool=V.filter(v=>hasCerts(v,item.certs)); steps.push([`Hold ${item.certs.map(c=>CERT[c]).join(' + ')||'any role'} (whole roster)`,pool.length]);
+  pool=pool.filter(onSite); steps.push(['On site now',pool.length]);
+  pool=pool.filter(v=>!outgoing(v)&&!item.excluded.includes(v.id)); steps.push(['Not already moving or declined',pool.length]);
+  pool=pool.filter(v=>v.post!==item.postId); steps.push(['Not already at this post',pool.length]);
+  pool=pool.filter(v=>!gapPosts.has(v.post)); steps.push(["Not at a post that's itself short",pool.length]);
+  pool=pool.filter(rested); steps.push(['Rested (under 3 h without a break)',pool.length]);
+  pool=pool.filter(v=>v.post==='HQ'||count(v.post)-1>=P[v.post].min); steps.push(['Their post stays at or above minimum',pool.length]);
+  const list=pool.map(v=>({v,cost:moveCost(v,item),walk:walkMin(v.post,item.postId)})).sort((a,b)=>a.cost-b.cost);
+  return {list,steps};
+}
+function solve(items){
+  const t0=performance.now();
+  const gapPosts=new Set(items.map(i=>i.postId));
+  const perItem=new Map(items.map(it=>[it.id,candidatesFor(it,gapPosts)]));
+  const slots=[]; items.forEach(it=>{for(let k=0;k<it.remaining;k++) slots.push({item:it,idx:k,cands:perItem.get(it.id).list});});
+  const n=slots.length; const lb=new Array(n+1).fill(0); for(let i=n-1;i>=0;i--) lb[i]=lb[i+1]+(slots[i].cands.length?slots[i].cands[0].cost:0);
+  let best={filled:-1,cost:Infinity,assign:[]}; let nodes=0; const used=new Set(); const pulls={}; const assign=new Array(n).fill(null);
+  function dfs(i,cost,filled){
+    nodes++;
+    if(i===n){ if(filled>best.filled||(filled===best.filled&&cost<best.cost)) best={filled,cost,assign:assign.slice()}; return; }
+    const maxFill=filled+(n-i); if(maxFill<best.filled) return; if(maxFill===best.filled&&cost+lb[i]>=best.cost) return;
+    const sl=slots[i];
+    for(let ci=0;ci<sl.cands.length;ci++){ const c=sl.cands[ci]; if(used.has(c.v.id)) continue;
+      if(sl.idx>0&&assign[i-1]&&assign[i-1].ci>=ci) continue; // symmetry: slots of one gap are interchangeable
+      const p=c.v.post; if(p!=='HQ'){ if(count(p)-(pulls[p]||0)-1<P[p].min) continue; }
+      used.add(c.v.id); pulls[p]=(pulls[p]||0)+1; assign[i]={c,ci}; dfs(i+1,cost+c.cost,filled+1); used.delete(c.v.id); pulls[p]--; assign[i]=null; }
+    assign[i]=null; dfs(i+1,cost,filled); // leave this slot unfilled
+  }
+  dfs(0,0,0);
+  const ms=performance.now()-t0;
+  const moves=[]; const unfilled=[];
+  slots.forEach((sl,i)=>{ const a=best.assign[i]; if(a){ moves.push({slot:sl,c:a.c}); } else unfilled.push(sl); });
+  return {moves,unfilled,ms,nodes,cost:best.cost,perItem,slots,gapPosts};
+}
+function baseline(items){ // what a person scrolling the group chat does: one gap at a time, nearest qualified first, no coverage check
+  const used=new Set(); const out=[];
+  for(const it of items){ for(let k=0;k<it.remaining;k++){ const cands=V.filter(v=>hasCerts(v,it.certs)&&onSite(v)&&!used.has(v.id)&&v.post!==it.postId&&!outgoing(v)&&!it.excluded.includes(v.id)).sort((a,b)=>dist(a.post,it.postId)-dist(b.post,it.postId));
+    const c=cands[0]; if(!c){out.push({item:it,v:null});continue;} used.add(c.id); const p=P[c.post]; const pulled=out.filter(o=>o.v&&o.v.post===c.post).length+1; const left=c.post==='HQ'?null:count(c.post)-pulled;
+    out.push({item:it,v:c,breaks:left!==null&&left<p.min?`${p.short} drops to ${left}, below its ${p.min}-person minimum`:null,fatigued:!rested(c)?`${c.name.split(' ')[0]} has done ${c.continuous} h without a break`:null,robs:items.some(o=>o!==it&&o.postId===c.post)?`${p.short} is itself short`:null}); } }
+  return out;
+}
+function explain(v,item,walk){
+  const p=P[item.postId]; const first=v.name.split(' ')[0];
+  if(v.post==='HQ'){ const sb=standbyCount(); return {l1:`${v.name} comes off ${v.status==='on_break'?'break':'standby'} at HQ to ${p.name}.`, l2:`Standby pool goes ${sb} → ${sb-1}. ${walk}-min walk. ${item.certs.length?item.certs.map(c=>CERT[c]).join(', ')+' on file, verify at check-in.':'No certificate needed.'}${v.hoursToday?` Has done ${v.hoursToday} h today.`:''}`}; }
+  const from=P[v.post]; const after=count(v.post)-1;
+  return {l1:`${v.name} moves from ${from.name} to ${p.name}.`, l2:`${from.short} stays at ${after}, ${after>from.min?'above':'at'} its ${from.min}-person minimum. ${walk}-min walk.${item.certs.length?' '+item.certs.map(c=>CERT[c]).join(', ')+' on file, verify at check-in.':''}${v.hoursToday?` Has done ${v.hoursToday} h today.`:''}`};
+}
+function doSolve(){
+  const items=openGaps().sort(sortItems); if(!items.length){S.plan=null;renderAll();return;}
+  // drop stale proposed (unapproved) moves and re-solve from scratch
+  S.moves.filter(m=>m.status==='proposed').forEach(m=>{const it=S.items.find(i=>i.id===m.itemId); if(it) it.remaining++;}); S.moves=S.moves.filter(m=>m.status!=='proposed');
+  const items2=openGaps().sort(sortItems);
+  const res=solve(items2);
+  const base=baseline(items2); // computed before moves are created, while the slots are still open
+  const moveIds=[];
+  for(const {slot,c} of res.moves){ const it=slot.item; const ex=explain(c.v,it,c.walk);
+    const m={id:nid('m'),itemId:it.id,volId:c.v.id,from:c.v.post,to:it.postId,cost:c.cost,walk:c.walk,status:'proposed',rationale:ex,msg:null,reply:null,history:[['proposed',S.now]]};
+    S.moves.push(m); it.remaining--; moveIds.push(m.id); }
+  S.plan={at:S.now,ms:res.ms,nodes:res.nodes,cost:res.cost,moveIds,unfilled:res.unfilled.map(sl=>({item:sl.item,steps:res.perItem.get(sl.item.id).steps})),baseline:base,items:items2.map(i=>i.id),gapPosts:[...res.gapPosts],slots:res.slots.length};
+  items2.forEach(it=>{ if(it.remaining===0) it.status='planned'; });
+  log('Backfill',`Proposed plan: ${res.moves.length} move${res.moves.length===1?'':'s'} for ${res.slots.length} slot${res.slots.length===1?'':'s'} across ${items2.length} gap${items2.length===1?'':'s'} in ${res.ms.toFixed(1)} ms (${res.nodes} nodes searched).${res.unfilled.length?' '+res.unfilled.length+' slot(s) could not be filled under the hard rules.':''}`);
+  document.getElementById('trace').textContent=traceText(res,items2);
+  renderAll();
+}
+function traceText(res,items){
+  const lines=[`solve @ ${hhmm(S.now)} · ${items.length} gap(s), ${res.slots.length} slot(s) solved together`,`search: ${res.nodes} nodes, best cost ${isFinite(res.cost)?res.cost:'n/a'}, ${res.ms.toFixed(2)} ms`];
+  for(const it of items){ const c=res.perItem.get(it.id); lines.push(`\n[${it.risk.toUpperCase()}] ${P[it.postId].name} needs ${it.headcount} · due ${hhmm(it.deadline)}`); c.steps.forEach(s=>lines.push(`  ${s[1].toString().padStart(3)}  ${s[0]}`)); lines.push(`  feasible, by cost: ${c.list.slice(0,6).map(x=>`${x.v.name.split(' ')[0]}@${P[x.v.post].short} ${x.cost}`).join(' · ')||'none'}`); }
+  lines.push(`\nchosen: ${res.moves.map(m=>`${m.c.v.name.split(' ')[0]} ${P[m.c.v.post].short}→${P[m.slot.item.postId].short} (${m.c.cost})`).join(', ')||'none'}`);
+  if(res.unfilled.length) lines.push(`unfilled: ${res.unfilled.map(s=>P[s.item.postId].short).join(', ')}`);
+  return lines.join('\n');
+}
+const riskRank={high:0,medium:1,low:2};
+function sortItems(a,b){return riskRank[a.risk]-riskRank[b.risk]||a.deadline-b.deadline||a.created-b.created;}
+
+/* ---------- moves lifecycle ---------- */
+function setStatus(m,st){m.status=st;m.history.push([st,S.now]);}
+function doApprove(mid){const m=S.moves.find(x=>x.id===mid); if(!m||m.status!=='proposed')return; tick(1); setStatus(m,'approved'); const v=V.find(x=>x.id===m.volId); log('Mo',`Approved: ${v.name} ${P[m.from].short} → ${P[m.to].short}.`); m.msg=draftMessage(m); renderAll();}
+function doApproveAll(){const ps=S.moves.filter(m=>m.status==='proposed'); if(!ps.length)return; tick(1); ps.forEach(m=>{setStatus(m,'approved'); m.msg=draftMessage(m);}); log('Mo',`Approved ${ps.length} move${ps.length===1?'':'s'}: ${ps.map(m=>V.find(v=>v.id===m.volId).name.split(' ')[0]+' → '+P[m.to].short).join(', ')}.`); setView('track'); renderAll();}
+function doReject(mid){const m=S.moves.find(x=>x.id===mid); if(!m||m.status!=='proposed')return; const it=S.items.find(i=>i.id===m.itemId); const v=V.find(x=>x.id===m.volId); setStatus(m,'rejected'); it.excluded.push(v.id); it.remaining++; it.status='open'; log('Mo',`Rejected the move for ${v.name}; gap at ${P[it.postId].short} reopened (${it.remaining} needed).`); renderAll();}
+function doSwap(mid,volId){const m=S.moves.find(x=>x.id===mid); if(!m||m.status!=='proposed')return; const it=S.items.find(i=>i.id===m.itemId); const v=V.find(x=>x.id===volId); const old=V.find(x=>x.id===m.volId);
+  if(v.post!=='HQ'&&count(v.post)-1<P[v.post].min){log('Backfill',`Swap refused: ${P[v.post].short} would drop below minimum.`);renderAll();return;}
+  m.volId=v.id; m.from=v.post; m.walk=walkMin(v.post,it.postId); m.cost=moveCost(v,it); m.rationale=explain(v,it,m.walk); log('Mo',`Edited the plan: ${v.name} instead of ${old.name} for ${P[it.postId].short}.`); renderAll();}
+function draftMessage(m){const v=V.find(x=>x.id===m.volId); const p=P[m.to]; const first=v.name.split(' ')[0]; const lead=p.lead||((V.find(x=>x.post===p.id&&x.status==='on_post'&&x.id!==v.id)||{}).name||'the post lead').split(' ')[0];
+  return `Hi ${first}, it's Mo (safety). Can you head to ${p.name} now? About a ${m.walk}-min walk from ${P[m.from].short}; find ${lead} when you get there.\nReply YES or NO.`;}
+function doSend(mid){const m=S.moves.find(x=>x.id===mid); if(!m||m.status!=='approved')return; setStatus(m,'sent'); const v=V.find(x=>x.id===m.volId); log('Mo',`Sent message to ${v.name}: "${m.msg.replace(/\n/g,' ')}"`); renderAll();}
+function doSendAll(){S.moves.filter(m=>m.status==='approved').forEach(m=>doSend(m.id));}
+function doReply(mid,ans){const m=S.moves.find(x=>x.id===mid); if(!m||m.status!=='sent')return; const v=V.find(x=>x.id===m.volId); const it=S.items.find(i=>i.id===m.itemId);
+  if(ans==='yes'){tick(2); m.reply='YES'; setStatus(m,'confirmed'); m.eta=S.now+m.walk; log(`Volunteer · ${v.name.split(' ')[0]}`,`Replied YES. Expected at ${P[m.to].short} by ${hhmm(m.eta)}.`);}
+  else { tick(ans==='none'?5:2); m.reply=ans==='none'?'(no answer in 5 min)':'NO'; setStatus(m,ans==='none'?'timeout':'declined'); it.excluded.push(v.id); it.remaining++; it.status='open';
+    log(ans==='none'?'Backfill':`Volunteer · ${v.name.split(' ')[0]}`,ans==='none'?`No answer from ${v.name} in 5 min. Gap at ${P[it.postId].short} reopened (${it.remaining} needed).`:`Replied NO. Gap at ${P[it.postId].short} reopened (${it.remaining} needed); next option will be proposed.`); }
+  renderAll();}
+function doArrive(mid){const m=S.moves.find(x=>x.id===mid); if(!m||m.status!=='confirmed')return; const v=V.find(x=>x.id===m.volId); if(S.now<m.eta) S.now=m.eta; setStatus(m,'on_post'); v.post=m.to; v.status='on_post'; const it=S.items.find(i=>i.id===m.itemId);
+  log('Mo',`${v.name} checked in at ${P[m.to].name}${it.certs.length?' ('+it.certs.map(c=>CERT[c]).join(', ')+' sighted)':''}.`);
+  const active=S.moves.filter(x=>x.itemId===it.id&&['approved','sent','confirmed','proposed'].includes(x.status)).length; if(it.remaining===0&&active===0){it.status='closed'; log('Backfill',`Gap closed: ${P[it.postId].name} back to ${count(it.postId)} on post.`);}
+  renderAll();}
+function doRecheck(iid){const it=S.items.find(i=>i.id===iid); it.recheck=true; it.recheckAt=S.now; log('Mo',`Re-checked "${it.title}": kept at ${it.risk.toUpperCase()}. Still in the queue, not promoted.`); renderAll();}
+function doCloseOps(iid){const it=S.items.find(i=>i.id===iid); it.status='closed'; log('Mo',`Closed: ${it.title}.`); renderAll();}
+
+/* ---------- rendering ---------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function setView(v){S.view=v; document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v)); ['queue','plan','track','roster','log'].forEach(k=>document.getElementById('view-'+k).hidden=k!==v);}
+function renderAll(){ document.getElementById('clock').textContent=hhmm(S.now); renderMetrics(); renderQueue(); renderPlan(); renderTrack(); renderRoster(); renderLog(); }
+function renderMetrics(){
+  document.getElementById('m-ms').textContent=S.plan?(S.plan.ms<1?'<1 ms':S.plan.ms.toFixed(0)+' ms'):'–';
+  const changes=S.moves.filter(m=>m.from!=='HQ'&&['approved','sent','confirmed','on_post','proposed'].includes(m.status)).length; document.getElementById('m-moves').textContent=changes;
+  const gaps=openGaps().reduce((a,i)=>a+i.remaining,0); document.getElementById('m-gaps').textContent=gaps; document.getElementById('m-gaps').style.color=gaps?'var(--crit)':'var(--ok)';
+  const live=S.moves.filter(m=>['approved','sent','confirmed','on_post'].includes(m.status)); document.getElementById('m-conf').textContent=`${live.filter(m=>m.status==='on_post').length}/${live.length}`;
+  const nq=document.getElementById('n-queue'); const open=S.items.filter(i=>i.status!=='closed'&&!(i.kind==='gap'&&i.remaining===0)).length; nq.hidden=!open; nq.textContent=open;
+  const nt=document.getElementById('n-track'); const pend=S.moves.filter(m=>['approved','sent','confirmed'].includes(m.status)).length; nt.hidden=!pend; nt.textContent=pend; nt.className='n ok';
+}
+function renderQueue(){
+  const el=document.getElementById('queue-list'); const items=S.items.filter(i=>i.status!=='closed').sort(sortItems);
+  if(!items.length){el.innerHTML='<div class="empty">Queue is empty. Paste a radio message above, or pick a demo scenario.</div>';return;}
+  el.innerHTML=`<div class="note" style="margin-bottom:6px">Sorted by risk level (set by a person), then earliest deadline. Waiting items get a reminder, never an automatic promotion.</div>`+items.map(it=>{
+    const waited=S.now-it.created; const aged=waited>=15&&!(it.recheck&&S.now-it.recheckAt<15); const p=P[it.postId];
+    const planned=it.kind==='gap'&&it.remaining===0; const active=S.moves.filter(m=>m.itemId===it.id&&['proposed','approved','sent','confirmed'].includes(m.status)).length;
+    return `<div class="card ${it.risk==='high'?'crit':it.risk==='medium'?'warn':'low'}">
+      <div class="row"><div><div class="title">${esc(it.title)}</div><div class="sub">${it.kind==='gap'?(it.certs.map(c=>CERT[c]).join(', ')||'no certificate')+' · ':''}${it.kind==='ops'?'Ops task · ':''}due ${hhmm(it.deadline)} · reported ${hhmm(it.created)}</div></div><span class="pill ${it.risk}">${it.risk}</span></div>
+      ${it.kind==='gap'?`<div class="status">${planned?`<span class="st done">${active} move${active===1?'':'s'} in progress</span>`:`<span class="st now">${it.remaining} still open</span>`}${it.excluded.length?`<span class="st">${it.excluded.length} declined/rejected</span>`:''}</div>`:''}
+      ${aged?`<div class="row" style="align-items:center"><span class="pill info">Waiting ${waited} min · re-check?</span><button class="btn sm" data-recheck="${it.id}">Re-check</button></div>`:''}
+      ${it.kind==='ops'?`<div class="btnrow end"><button class="btn sm" data-closeops="${it.id}">Mark done</button></div>`:''}
+      ${it.kind==='gap'&&!planned?`<div class="btnrow end"><button class="btn sm primary" data-gosolve="1">Propose plan</button></div>`:''}
+    </div>`;}).join('');
+  el.querySelectorAll('[data-recheck]').forEach(b=>b.onclick=()=>doRecheck(b.dataset.recheck));
+  el.querySelectorAll('[data-closeops]').forEach(b=>b.onclick=()=>doCloseOps(b.dataset.closeops));
+  el.querySelectorAll('[data-gosolve]').forEach(b=>b.onclick=()=>{setView('plan');doSolve();});
+}
+function mapSvg(moves,gapPosts){
+  const g=new Set(gapPosts); const src=new Set(moves.map(m=>m.from));
+  let s=`<svg class="map" viewBox="0 0 600 400" role="img" aria-label="Site map with proposed moves"><rect x="0" y="0" width="600" height="400" fill="transparent"/>`;
+  s+=`<path d="M0 372 Q150 352 300 376 T600 368 L600 400 L0 400 Z" fill="var(--info-soft)"/><text x="8" y="394" font-size="11" fill="var(--info)" font-family="var(--mono)">river</text>`;
+  for(const m of moves){ const a=P[m.from],b=P[m.to]; s+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#arr)"/>`; }
+  s+=`<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--accent)"/></marker></defs>`;
+  for(const p of POSTS){ const fill=g.has(p.id)?'var(--crit)':src.has(p.id)?'var(--accent)':(p.id==='HQ'?'var(--ink-3)':'var(--ok)'); const c=count(p.id);
+    s+=`<circle cx="${p.x}" cy="${p.y}" r="${p.id==='HQ'?11:9}" fill="${fill}" stroke="var(--surface)" stroke-width="2"/><text x="${p.x}" y="${p.y+(p.y>340?-14:22)}" text-anchor="middle" font-size="11" font-family="var(--sans)" font-weight="600" fill="var(--ink)">${esc(p.short)}${p.id==='HQ'?' '+standbyCount():p.min?' '+c+'/'+p.min:''}</text>`; }
+  return s+'</svg>';
+}
+function renderPlan(){
+  const el=document.getElementById('view-plan'); const gaps=openGaps(); const plan=S.plan;
+  const planMoves=plan?S.moves.filter(m=>plan.moveIds.includes(m.id)):[];
+  const proposed=planMoves.filter(m=>m.status==='proposed');
+  if(!plan&&!gaps.length){el.innerHTML='<div class="empty">No open gaps. Confirm a message in the Queue to get a plan.</div>';return;}
+  if(!plan||(gaps.length&&!proposed.length&&gaps.some(g=>!plan.items.includes(g.id)||g.remaining>0))){
+    el.innerHTML=`<div class="card crit"><div class="title">${gaps.reduce((a,i)=>a+i.remaining,0)} slot${gaps.reduce((a,i)=>a+i.remaining,0)===1?'':'s'} open across ${gaps.length} gap${gaps.length===1?'':'s'}</div><div class="sub">${gaps.map(g=>`${P[g.postId].name} needs ${g.remaining}`).join(' · ')}</div><div class="btnrow end"><button class="btn primary" id="solve-btn">Propose plan</button></div></div>${plan?renderPlanSummary(plan,planMoves):''}`;
+    el.querySelector('#solve-btn').onclick=doSolve; return; }
+  el.innerHTML=renderPlanSummary(plan,planMoves);
+  el.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>doApprove(b.dataset.approve));
+  el.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>doReject(b.dataset.reject));
+  el.querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>doSwap(b.dataset.swap,b.dataset.vol));
+  const all=el.querySelector('#approve-all'); if(all) all.onclick=doApproveAll;
+  const rs=el.querySelector('#resolve'); if(rs) rs.onclick=doSolve;
+}
+function renderPlanSummary(plan,planMoves){
+  const items=plan.items.map(id=>S.items.find(i=>i.id===id)); const proposed=planMoves.filter(m=>m.status==='proposed');
+  const changes=planMoves.filter(m=>m.from!=='HQ'&&m.status!=='rejected').length;
+  let h=`<div class="card ok"><div class="row"><div><div class="title">Plan proposed at ${hhmm(plan.at)}</div><div class="sub">${planMoves.length} move${planMoves.length===1?'':'s'} for ${plan.slots} slot${plan.slots===1?'':'s'} · ${changes} roster change${changes===1?'':'s'} (people pulled off a post) · solved in ${plan.ms<1?'under 1':plan.ms.toFixed(0)} ms · ${plan.nodes} assignments searched</div></div></div>${mapSvg(planMoves.filter(m=>m.status!=='rejected'),plan.gapPosts)}</div>`;
+  if(plan.unfilled.length){ for(const u of plan.unfilled){ const p=P[u.item.postId]; const evening=V.filter(v=>v.block==='Sat-C'&&hasCerts(v,u.item.certs)).length;
+    h+=`<div class="card crit"><div class="banner">No feasible plan for 1 slot at ${p.name}</div><div class="sub">Backfill does not relax a rule on its own. Here is where the candidates ran out:</div><div class="funnel">${u.steps.map(s=>`<div>${esc(s[0])}</div><div class="n ${s[1]===0?'zero':''}">${s[1]}</div>`).join('')}</div>
+    <div class="sub"><b>Mo's options:</b> lower a source post's minimum for 30 min (e.g. ${nearestDonor(u.item)}), or call in an evening-shift volunteer (${evening} with ${u.item.certs.map(c=>CERT[c]).join(', ')||'any role'} arrive at 18:00).</div></div>`; } }
+  for(const m of planMoves){ const v=V.find(x=>x.id===m.volId); const it=S.items.find(i=>i.id===m.itemId); const alts=altsFor(m,it);
+    h+=`<div class="card ${m.status==='rejected'?'low':it.risk==='high'?'crit':'warn'}"><div class="row"><div><span class="pill ${it.risk}">${it.risk}</span> <span class="chip">${P[m.from].short} → ${P[m.to].short}</span> <span class="chip">${m.walk} min walk</span></div><span class="pill ${m.status==='proposed'?'neutral':m.status==='rejected'?'neutral':'ok'}">${m.status.replace('_',' ')}</span></div>
+      <div class="rationale"><div class="l1">${esc(m.rationale.l1)}</div><div class="l2">${esc(m.rationale.l2)}</div></div>
+      ${v.note?`<div class="note">Sign-up note: “${esc(v.note)}”</div>`:''}
+      ${m.status==='proposed'?`<details><summary>Why not someone else?</summary><ul class="tight">${alts.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>${alts.swap.length?`<div class="btnrow" style="margin-top:6px">${alts.swap.map(a=>`<button class="btn sm" data-swap="${m.id}" data-vol="${a.v.id}">Use ${esc(a.v.name.split(' ')[0])} (${P[a.v.post].short}, cost ${a.cost}) instead</button>`).join('')}</div>`:''}</details>
+      <div class="btnrow end"><button class="btn sm danger" data-reject="${m.id}">Reject</button><button class="btn sm ok" data-approve="${m.id}">Approve</button></div>`:''}
+    </div>`; }
+  if(plan.baseline&&plan.baseline.length){ const probs=plan.baseline.filter(b=>!b.v||b.breaks||b.fatigued||b.robs); if(probs.length){ h+=`<div class="card info"><div class="title" style="font-size:15px">What nearest-first would have done</div><ul class="tight">${probs.map(b=>b.v?`<li>Send ${esc(b.v.name)} from ${P[b.v.post].short} to ${P[b.item.postId].short}: ${esc(b.breaks||b.robs||b.fatigued)}.</li>`:`<li>${P[b.item.postId].short}: nobody left with the right certificate.</li>`).join('')}</ul><div class="note">Solving all open gaps together, with coverage and rest as hard rules, avoids opening a new gap while closing this one.</div></div>`; } }
+  if(proposed.length) h+=`<div class="btnrow end"><button class="btn" id="resolve">Re-propose</button><button class="btn primary" id="approve-all">Approve all ${proposed.length}</button></div>`;
+  else if(openGaps().length) h+=`<div class="btnrow end"><button class="btn primary" id="resolve">Propose next option</button></div>`;
+  return h;
+}
+function nearestDonor(item){ const c=V.filter(v=>hasCerts(v,item.certs)&&onSite(v)&&v.post!=='HQ'&&v.post!==item.postId&&!outgoing(v)&&rested(v)&&count(v.post)-1<P[v.post].min).sort((a,b)=>dist(a.post,item.postId)-dist(b.post,item.postId))[0]; return c?`${P[c.post].short} from ${P[c.post].min} to ${P[c.post].min-1} frees ${c.name.split(' ')[0]}`:'none nearby'; }
+function altsFor(m,it){ const gapPosts=new Set(openGaps().map(i=>i.postId).concat([it.postId])); const used=new Set(S.moves.filter(x=>activeStatuses.includes(x.status)).map(x=>x.volId));
+  const chosen=V.find(x=>x.id===m.volId); const why=[]; const swap=[];
+  const pool=V.filter(v=>v.id!==chosen.id&&hasCerts(v,it.certs)&&onSite(v)).map(v=>({v,reason:used.has(v.id)?('is already moving to '+P[(outgoing(v)||{to:it.postId}).to].short):whyExcluded(v,it,gapPosts),cost:moveCost(v,it)})).sort((a,b)=>(a.reason?1:0)-(b.reason?1:0)||a.cost-b.cost);
+  for(const x of pool.filter(x=>!x.reason).slice(0,2)){ why.push(`${x.v.name} (${P[x.v.post].short}) is feasible but costs ${x.cost} vs ${m.cost}: ${x.v.post==='HQ'?'':'pulling off a post, '}${walkMin(x.v.post,it.postId)}-min walk${x.v.hoursToday?', '+x.v.hoursToday+' h worked':''}.`); swap.push(x); }
+  for(const x of pool.filter(x=>x.reason).slice(0,3)) why.push(`${x.v.name} (${x.v.post?P[x.v.post].short:'off site'}) ${x.reason}.`);
+  if(!why.length) why.push('No one else on site holds the required certificate.');
+  return {why,swap}; }
+function renderTrack(){
+  const el=document.getElementById('view-track'); const ms=S.moves.filter(m=>m.status!=='proposed'&&m.status!=='rejected').slice().reverse();
+  if(!ms.length){el.innerHTML='<div class="empty">Nothing in flight. Approve a move in Plan and it shows up here with its message and status.</div>';return;}
+  const reopened=openGaps().filter(g=>g.excluded.length&&g.remaining>0);
+  el.innerHTML=(reopened.length?`<div class="banner">Gap reopened: ${reopened.map(g=>`${P[g.postId].name} needs ${g.remaining}`).join(' · ')}. <button class="btn sm primary" id="next-opt">Propose next option</button></div>`:'')+
+  `<div class="note">Each move carries a status until a person is on post. Mo sends every message. Replies here are simulated for the demo.</div>`+ms.map(m=>{ const v=V.find(x=>x.id===m.volId); const it=S.items.find(i=>i.id===m.itemId);
+    const steps=['approved','sent','confirmed','on_post']; const idx=steps.indexOf(m.status); const bad=['declined','timeout'].includes(m.status);
+    return `<div class="card ${bad?'crit':m.status==='on_post'?'ok':'info'}"><div class="row"><div><div class="title">${esc(v.name)} → ${P[m.to].name}</div><div class="sub">from ${P[m.from].short} · approved by Mo ${hhmm(m.history.find(h=>h[0]==='approved')[1])}${m.eta?' · ETA '+hhmm(m.eta):''}</div></div><span class="pill ${bad?'high':m.status==='on_post'?'ok':'info'}">${m.status.replace('_',' ')}</span></div>
+      <div class="status">${steps.map((s,i)=>`<span class="st ${bad&&i>=2?'':i<idx||m.status==='on_post'&&i<=idx?'done':i===idx?'now':''} ${bad&&s==='confirmed'?'bad':''}">${bad&&s==='confirmed'?m.status:s.replace('_',' ')}</span>`).join('')}</div>
+      <div class="sms">${esc(m.msg)}</div>
+      ${m.reply?`<div class="reply">${esc(m.reply)}</div>`:''}
+      ${m.status==='approved'?`<div class="btnrow end"><button class="btn primary sm" data-send="${m.id}">Send to ${esc(v.name.split(' ')[0])}</button></div>`:''}
+      ${m.status==='sent'?`<div class="row" style="align-items:center"><span class="note">Demo: volunteer reply</span><div class="btnrow"><button class="btn sm ok" data-reply="${m.id}" data-a="yes">YES</button><button class="btn sm danger" data-reply="${m.id}" data-a="no">NO</button><button class="btn sm" data-reply="${m.id}" data-a="none">No answer</button></div></div>`:''}
+      ${m.status==='confirmed'?`<div class="btnrow end"><button class="btn sm ok" data-arrive="${m.id}">Check in at ${P[m.to].short}</button></div>`:''}
+    </div>`;}).join('');
+  el.querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>doSend(b.dataset.send));
+  el.querySelectorAll('[data-reply]').forEach(b=>b.onclick=()=>doReply(b.dataset.reply,b.dataset.a));
+  el.querySelectorAll('[data-arrive]').forEach(b=>b.onclick=()=>doArrive(b.dataset.arrive));
+  const n=el.querySelector('#next-opt'); if(n) n.onclick=()=>{setView('plan');doSolve();};
+}
+function renderRoster(){
+  const el=document.getElementById('view-roster'); const onsite=V.filter(onSite).length;
+  el.innerHTML=`<div class="note">${V.length} volunteers over the weekend · ${onsite} on site this shift · ${standbyCount()} on standby at HQ. Counts are people on post now / post minimum.</div>`+POSTS.map(p=>{ const vs=V.filter(v=>v.post===p.id||S.moves.some(m=>m.volId===v.id&&m.to===p.id&&['approved','sent','confirmed'].includes(m.status))); const c=p.id==='HQ'?standbyCount():count(p.id); const cls=p.id==='HQ'?'':c<p.min?'below':c===p.min?'atmin':'ok';
+    return `<details><summary><div class="post-row" style="border:0;padding:2px 0"><span>${esc(p.name)}${p.certs.length?` <span class="chip">${p.certs.map(x=>CERT[x]).join(', ')}</span>`:''}</span><span class="cnt ${cls}">${p.id==='HQ'?c+' standby':c+' / min '+p.min}</span></div></summary>
+    <div class="names">${vs.map(v=>{const og=outgoing(v); const inc=S.moves.find(m=>m.volId===v.id&&m.to===p.id&&['approved','sent','confirmed'].includes(m.status)); return `<span class="${v.status==='no_show'?'gone':og||inc?'mv':''}" title="${esc(v.note||'')}">${esc(v.name)}${v.status==='no_show'?' · no-show':v.status==='on_break'?' · break':''}${og?' → '+P[og.to].short:''}${inc?' (arriving)':''}${v.certs.filter(x=>!p.certs.includes(x)).length?' · '+v.certs.filter(x=>!p.certs.includes(x)).map(x=>CERT[x]).join(', '):''}</span>`;}).join('')||'<span>—</span>'}</div></details>`;}).join('');
+}
+function renderLog(){
+  const el=document.getElementById('view-log');
+  el.innerHTML=`<div class="btnrow"><button class="btn primary sm" id="eod">Draft end-of-day record</button><span class="note">Every step with who did it. The record is drafted from this log, not from memory the next morning.</span></div><div id="eod-out" hidden><textarea class="copyout" id="eod-text" readonly></textarea><div class="btnrow end"><button class="btn sm" id="eod-copy">Copy</button></div></div>`+
+    S.log.slice().reverse().map(l=>`<div class="logline"><div class="t">${hhmm(l.t)}</div><div><span class="a">${esc(l.actor)}</span> ${esc(l.text)}</div></div>`).join('');
+  el.querySelector('#eod').onclick=async()=>{ const out=el.querySelector('#eod-out'); const ta=el.querySelector('#eod-text'); out.hidden=false; ta.value=eodTemplate();
+    if(S.key){ ta.value+='\n\n(asking Claude to tidy this from the structured log…)'; try{ const t=await callClaude({system:'You write a concise end-of-day safety roster record for a festival. Use ONLY the facts in the structured log you are given. Do not add events, names, times or causes that are not in it. Keep timestamps. Plain text, under 300 words.',user:JSON.stringify({date:'Saturday',now:hhmm(S.now),log:S.log.map(l=>({t:hhmm(l.t),who:l.actor,what:l.text})),gaps:S.items.map(i=>({post:P[i.postId].name,kind:i.kind,risk:i.risk,status:i.status,remaining:i.remaining}))}),maxTokens:900}); ta.value=t+'\n\n--- Drafted by Claude from the structured log; template version below for comparison ---\n\n'+eodTemplate(); }catch(e){ ta.value=eodTemplate()+'\n\n(Claude draft unavailable: '+e.message+')'; } } };
+  el.querySelector('#eod-copy').onclick=()=>{ const ta=el.querySelector('#eod-text'); const done=()=>{el.querySelector('#eod-copy').textContent='Copied';}; if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(ta.value).then(done).catch(()=>{ta.select();});} else ta.select(); };
+}
+function eodTemplate(){
+  const L=[`RIVERSIDE FESTIVAL · SAFETY ROSTER RECORD (DRAFT)`,`Saturday 14:00–${hhmm(S.now)} · 38°C · Generated from the Backfill event log · For review by Mo (Safety Lead)`,''];
+  const gaps=S.items.filter(i=>i.kind==='gap'); L.push(`GAPS HANDLED: ${gaps.length}`);
+  gaps.forEach((it,k)=>{ const p=P[it.postId]; const mv=S.moves.filter(m=>m.itemId===it.id);
+    L.push(`${k+1}. ${p.name} · reported ${hhmm(it.created)} · risk ${it.risk.toUpperCase()} (set by coordinator) · needed ${it.headcount} × ${it.certs.map(c=>CERT[c]).join(', ')||'general'} by ${hhmm(it.deadline)}`);
+    if(it.source&&it.source.sentence) L.push(`   Source: "${it.source.sentence}"${it.source.names&&it.source.names.length?' · no-show: '+it.source.names.join(', '):''}`);
+    mv.forEach(m=>{ const v=V.find(x=>x.id===m.volId); L.push(`   ${v.name}: ${P[m.from].short} → ${p.short} · ${m.history.map(h=>h[0].replace('_',' ')+' '+hhmm(h[1])).join(', ')}${m.reply?' · reply: '+m.reply:''}`); });
+    L.push(`   Status at ${hhmm(S.now)}: ${it.status==='closed'?'filled, all on post':it.remaining>0?it.remaining+' still open':'moves in progress'}`); });
+  const ops=S.items.filter(i=>i.kind==='ops'); if(ops.length){L.push('',`OTHER ITEMS: ${ops.map(o=>`${o.title} (${o.status})`).join('; ')}`);}
+  L.push('',`FULL LOG`); S.log.forEach(l=>L.push(`${hhmm(l.t)}  ${l.actor}: ${l.text}`));
+  return L.join('\n');
+}
+
+/* ---------- scenarios ---------- */
+const SCEN={
+  1:{msg:"Priya Patel hasn't turned up at First Aid North. Need one more there.",title:'Scenario 1 · One no-show',text:'2pm, 38°C. One first-aid volunteer has not shown at First Aid North. Parse the message, confirm the record, and Backfill proposes the cheapest move that keeps every other post above minimum. Approve, send, YES, check in.',setup:()=>{VBY('Priya Patel').status='no_show';}},
+  2:{msg:"Alex is a no-show at first aid, need one.",title:'Scenario 2 · Replacement declines',text:'The message does not say which first-aid post, so Backfill asks one question instead of guessing. After Mo approves and sends, tap NO on the volunteer reply: the gap reopens and the next option is proposed, excluding the person who declined.',setup:()=>{VBY('Alex Nguyen').status='no_show';}},
+  3:{msg:"Alex and Priya both no-show at First Aid North, need two. Water Station B queue is 40 deep, they want one more.",title:'Scenario 3 · Two posts short at once',text:'Two gaps compete for the same few qualified people. Backfill first asks whether the water queue is a staffing or a supply problem, then solves both gaps together. Compare with the nearest-first line at the bottom of the plan.',setup:()=>{VBY('Alex Nguyen').status='no_show';VBY('Priya Patel').status='no_show';}},
+};
+function resetAll(){ buildRoster(); S.now=840; S.items=[]; S.moves=[]; S.plan=null; S.log=[]; S.scenario=null; S.seq=1; S.pending=[]; closeSheet(); seedQueue(); log('Backfill','Saturday 14:00. Roster loaded: '+V.length+' volunteers, '+V.filter(onSite).length+' on site this shift.');
+  document.getElementById('msg').value=''; note(''); document.getElementById('trace').textContent='No plan yet. Confirm a gap, then open Plan.'; document.querySelectorAll('.preset').forEach(b=>b.classList.remove('active'));
+  document.getElementById('scen-card').innerHTML='<div class="title">Pick a demo scenario</div><div class="sub">Three preset scenarios run on a generated 300-volunteer roster (about 60 on site this shift). Each one takes under a minute to click through, or press Auto-run.</div>'; setView('queue'); renderAll(); }
+function loadScenario(n){ resetAll(); const sc=SCEN[n]; S.scenario=n; sc.setup(); document.getElementById('msg').value=sc.msg; document.getElementById('ps'+n).classList.add('active');
+  document.getElementById('scen-card').innerHTML=`<div class="title">${sc.title}</div><div class="sub">${sc.text}</div><div class="note" style="margin-top:4px">Steps: Parse message → confirm → Propose plan → Approve → Send → reply → Check in.</div>`;
+  log('Radio',`Transcript received: "${sc.msg}"`); renderAll(); }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function autorun(){ const n=S.scenario||1; if(!S.scenario) loadScenario(1); const D=900; const btn=document.getElementById('autorun'); btn.disabled=true;
+  try{
+    await doParse(document.getElementById('msg').value); await sleep(D);
+    if(S.pending.some(r=>r.ask)){ const r=S.pending.find(r=>r.ask); r.postId='FA-N'; r.ask=null; r.postConf='high'; r.risk=suggestRisk(r); log('Coordinator','Answered "First Aid North" to the parser\'s question.'); renderSheet(); await sleep(D); }
+    S.pending.forEach(r=>{ r.riskConfirmed=true; if(r.bottleneck) r.bottleneckAnswer='staff'; }); renderSheet(); await sleep(D);
+    doConfirmAll(); await sleep(D); setView('plan'); doSolve(); await sleep(D*2);
+    doApproveAll(); await sleep(D); doSendAll(); await sleep(D);
+    const sent=S.moves.filter(m=>m.status==='sent');
+    if(n===2&&sent.length){ doReply(sent[0].id,'no'); await sleep(D*1.5); setView('plan'); doSolve(); await sleep(D*2); doApproveAll(); await sleep(D); doSendAll(); await sleep(D); }
+    S.moves.filter(m=>m.status==='sent').forEach(m=>doReply(m.id,'yes')); await sleep(D);
+    S.moves.filter(m=>m.status==='confirmed').forEach(m=>doArrive(m.id)); await sleep(D); setView('log'); renderAll();
+  }catch(e){ log('Backfill','Auto-run stopped: '+e.message); renderAll(); } finally{ btn.disabled=false; } }
+
+/* ---------- wiring ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{setView(t.dataset.v); if(t.dataset.v==='plan'&&!S.plan&&openGaps().length) doSolve(); renderAll();});
+document.getElementById('parse').onclick=()=>doParse(document.getElementById('msg').value);
+document.getElementById('try-infeasible').onclick=()=>{document.getElementById('msg').value='Need six more at First Aid North, heat casualties coming in.'; doParse(document.getElementById('msg').value);};
+document.querySelectorAll('.preset[data-s]').forEach(b=>b.onclick=()=>loadScenario(+b.dataset.s));
+document.getElementById('reset').onclick=resetAll;
+document.getElementById('autorun').onclick=autorun;
+document.getElementById('sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeSheet(); });
+function setAiBadge(){ const b=document.getElementById('aibadge'); b.textContent=S.key?'Live · Claude':'Offline parser'; b.className='pill '+(S.key?'ok':'neutral'); document.getElementById('ai-note').textContent=S.key?'Live mode: Claude parses messages and drafts text from structured fields; the solver still decides every move. If a call fails (for example, the hosted viewer blocks outside network calls), Backfill falls back to the offline parser for that step.':'Offline mode: a rule-based parser and templates grounded on the same structured fields. The hosted viewer blocks outside network calls, so live mode works when the file is opened locally.'; }
+document.getElementById('savekey').onclick=()=>{ const k=document.getElementById('apikey').value.trim(); if(!k){return;} S.key=k; try{localStorage.setItem('backfill_key',k);}catch(e){} setAiBadge(); log('Coordinator','Switched AI mode to live (Claude).'); renderAll(); };
+document.getElementById('clearkey').onclick=()=>{ S.key=null; document.getElementById('apikey').value=''; try{localStorage.removeItem('backfill_key');}catch(e){} setAiBadge(); renderAll(); };
+try{ const k=localStorage.getItem('backfill_key'); if(k){S.key=k; document.getElementById('apikey').value=k;} }catch(e){}
+setAiBadge(); resetAll();
+</script>
+
+</body>
+</html>
